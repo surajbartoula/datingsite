@@ -11,104 +11,7 @@ Set up your folder structure, initialize both frontend and backend projects. Con
 Phase 2 — Database Schema Design
 Design all tables upfront before touching the frontend. Here's the core structure:
 
--- Auth & Identity
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  username TEXT UNIQUE NOT NULL,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  is_verified BOOLEAN DEFAULT false,
-  verification_token TEXT,
-  reset_token TEXT,
-  reset_token_expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  last_online TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Profile
-CREATE TABLE profiles (
-  user_id INT PRIMARY KEY REFERENCES users(id),
-  gender TEXT CHECK (gender IN ('male','female','other')),
-  sexual_preference TEXT CHECK (sexual_preference IN ('male','female','both')),
-  biography TEXT,
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  city TEXT,
-  location_consent BOOLEAN DEFAULT false,
-  fame_rating INT DEFAULT 0
-);
-
--- Tags (reusable)
-CREATE TABLE tags (
-  id SERIAL PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL  -- e.g. "vegan", "geek"
-);
-
-CREATE TABLE user_tags (
-  user_id INT REFERENCES users(id),
-  tag_id  INT REFERENCES tags(id),
-  PRIMARY KEY (user_id, tag_id)
-);
-
--- Images
-CREATE TABLE images (
-  id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id),
-  url TEXT NOT NULL,
-  is_profile_picture BOOLEAN DEFAULT false
-);
-
--- Social interactions
-CREATE TABLE likes (
-  liker_id   INT REFERENCES users(id),
-  liked_id   INT REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (liker_id, liked_id)
-);
-
-CREATE TABLE visits (
-  visitor_id INT REFERENCES users(id),
-  visited_id INT REFERENCES users(id),
-  visited_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE blocks (
-  blocker_id INT REFERENCES users(id),
-  blocked_id INT REFERENCES users(id),
-  PRIMARY KEY (blocker_id, blocked_id)
-);
-
-CREATE TABLE reports (
-  id         SERIAL PRIMARY KEY,
-  reporter_id INT REFERENCES users(id),
-  reported_id INT REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Chat
-CREATE TABLE messages (
-  id         SERIAL PRIMARY KEY,
-  sender_id  INT REFERENCES users(id),
-  receiver_id INT REFERENCES users(id),
-  content    TEXT NOT NULL,
-  sent_at    TIMESTAMPTZ DEFAULT NOW(),
-  is_read    BOOLEAN DEFAULT false
-);
-
--- Notifications
-CREATE TABLE notifications (
-  id         SERIAL PRIMARY KEY,
-  user_id    INT REFERENCES users(id),       -- who receives it
-  type       TEXT NOT NULL,                   -- 'like','visit','message','match','unlike'
-  from_user_id INT REFERENCES users(id),     -- who triggered it
-  is_read    BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
----
+![alt text](database.png)
 
 ## Phase 3 — Profile CRUD
 
@@ -173,56 +76,11 @@ Handle all the details: prevent liking if you have no profile picture, enforce t
 ---
 
 ## React Page/Component Structure
-```
-src/
-├── pages/
-│   ├── Register.jsx
-│   ├── Login.jsx
-│   ├── VerifyEmail.jsx
-│   ├── ResetPassword.jsx
-│   ├── ProfileSetup.jsx
-│   ├── ProfileEdit.jsx
-│   ├── Browse.jsx
-│   ├── Search.jsx
-│   ├── ViewProfile.jsx
-│   ├── Chat.jsx
-│   └── Notifications.jsx
-├── components/
-│   ├── Navbar.jsx            (always visible, shows notification/message badges)
-│   ├── TagInput.jsx          (reusable autocomplete tag selector)
-│   ├── ImageUploader.jsx
-│   ├── ProfileCard.jsx       (used in browse/search lists)
-│   └── ProtectedRoute.jsx    (wraps routes that need auth)
-├── context/
-│   ├── AuthContext.jsx        (current user state, login/logout)
-│   ├── SocketContext.jsx      (Socket.io connection, real-time events)
-│   └── NotificationContext.jsx
-└── utils/
-    ├── api.js                (axios instance with base URL)
-    └── socket.js             (Socket.io client setup)
-```
 
----
+frontend.png
 
 ## Express Route Structure
 ```
-backend/
-├── routes/
-│   ├── auth.js        POST /register, POST /login, POST /logout,
-│   │                  GET  /verify/:token, POST /reset-password
-│   ├── profile.js     GET/PUT /profile, POST /profile/images, DELETE /profile/images/:id
-│   ├── browse.js      GET /browse/suggestions, GET /browse/search
-│   ├── users.js       GET /users/:id, POST /users/:id/like, DELETE /users/:id/like,
-│   │                  POST /users/:id/block, POST /users/:id/report,
-│   │                  GET /users/:id/visitors, GET /users/:id/likers
-│   ├── chat.js        GET /chat/:userId/messages, (Socket.io handles send)
-│   └── notifications.js  GET /notifications, PUT /notifications/:id/read
-├── middleware/
-│   ├── authMiddleware.js     (verify JWT)
-│   └── errorHandler.js
-├── db/
-│   └── pool.js               (pg Pool instance)
-└── socket/
-    └── socketHandler.js      (all Socket.io event logic)
+![alt text](backend.png)
 
 Build order summary: Schema → Auth → Profile CRUD → Fame rating → Browse/Match → Profile view + Likes/Blocks → Search → Socket.io (chat + notifications) → Polish. Each phase is independently testable before moving to the next.
