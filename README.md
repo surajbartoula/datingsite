@@ -22,9 +22,8 @@ Build the profile completion and editing pages. Handle gender, sexual preference
 ## Phase 4 — Fame Rating Logic
 
 Define and implement your fame rating formula. A straightforward consistent approach:
-```
+
 fame_rating = (total_likes_received * 3) + (total_visits_received * 1) - (total_unlikes_received * 2)
-```
 
 Recalculate this via a helper function or a PostgreSQL view whenever a like, unlike, or visit event occurs. Store the result in `profiles.fame_rating`. This keeps it simple and consistent.
 
@@ -37,7 +36,9 @@ This is the core logic, and it lives on the backend. When a user requests their 
 1. **Filter by sexual compatibility** — a heterosexual woman sees only men, bisexual users see both, etc. This is a `WHERE` clause join between `users`, `profiles`, and checking both sides' preferences.
 2. **Exclude** already-liked, blocked, and self profiles.
 3. **Score and rank** each candidate using a weighted formula, for example:
-```
+
+
+
 score = (proximity_score * 40) + (shared_tags_count * 35) + (fame_rating_normalized * 25)
 ```
 
@@ -67,20 +68,18 @@ For **chat**: when two users are connected (mutual like), they can open a chat r
 
 For **notifications**: whenever a like, visit, message, match, or unlike event occurs on the backend, emit a notification event to the target user's socket. The frontend listens for these events globally and updates an unread notification badge visible from every page. Notifications are also persisted to the `notifications` table so they survive page refreshes.
 
----
 
 ## Phase 9 — Polish & Edge Cases
 
 Handle all the details: prevent liking if you have no profile picture, enforce the 5-image limit, make blocked users disappear from all searches and notifications, handle the GPS consent flow properly, ensure the chat is disabled when someone unlikes, validate everything on both frontend and backend, and add responsive styling.
 
----
 
 ## React Page/Component Structure
 
 frontend.png
 
 ## Express Route Structure
-```
+
 ![alt text](backend.png)
 
 Build order summary: Schema → Auth → Profile CRUD → Fame rating → Browse/Match → Profile view + Likes/Blocks → Search → Socket.io (chat + notifications) → Polish. Each phase is independently testable before moving to the next.
