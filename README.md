@@ -23,7 +23,7 @@ Build the profile completion and editing pages. Handle gender, sexual preference
 
 Define and implement your fame rating formula. A straightforward consistent approach:
 
-fame_rating = (total_likes_received * 3) + (total_visits_received * 1) - (total_unlikes_received * 2)
+fame*rating = (total_likes_received * 3) + (total*visits_received * 1) - (total_unlikes_received \* 2)
 
 Recalculate this via a helper function or a PostgreSQL view whenever a like, unlike, or visit event occurs. Store the result in `profiles.fame_rating`. This keeps it simple and consistent.
 
@@ -37,10 +37,7 @@ This is the core logic, and it lives on the backend. When a user requests their 
 2. **Exclude** already-liked, blocked, and self profiles.
 3. **Score and rank** each candidate using a weighted formula, for example:
 
-
-
-score = (proximity_score * 40) + (shared_tags_count * 35) + (fame_rating_normalized * 25)
-```
+score = (proximity*score * 40) + (shared*tags_count * 35) + (fame_rating_normalized \* 25)
 
 Where `proximity_score` is inverse distance (closer = higher). Compute shared tags via a subquery counting matching rows in `user_tags`. Return results sorted by this score by default, but allow the frontend to override the sort to age, location, fame rating, or common tags.
 
@@ -68,15 +65,13 @@ For **chat**: when two users are connected (mutual like), they can open a chat r
 
 For **notifications**: whenever a like, visit, message, match, or unlike event occurs on the backend, emit a notification event to the target user's socket. The frontend listens for these events globally and updates an unread notification badge visible from every page. Notifications are also persisted to the `notifications` table so they survive page refreshes.
 
-
 ## Phase 9 — Polish & Edge Cases
 
 Handle all the details: prevent liking if you have no profile picture, enforce the 5-image limit, make blocked users disappear from all searches and notifications, handle the GPS consent flow properly, ensure the chat is disabled when someone unlikes, validate everything on both frontend and backend, and add responsive styling.
 
-
 ## React Page/Component Structure
 
-frontend.png
+![alt text](frontend.png)
 
 ## Express Route Structure
 
