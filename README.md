@@ -106,6 +106,7 @@ CREATE TABLE notifications (
   is_read    BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
 ```
 
 ---
