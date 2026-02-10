@@ -1,6 +1,7 @@
 {
   "name": "matcha-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Dating app backend with real-time chat and matching",
   "main": "server.js",
   "scripts": {
@@ -33,6 +34,10 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.11"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

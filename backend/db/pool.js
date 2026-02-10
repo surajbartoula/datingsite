@@ -1,5 +1,6 @@
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 
+console.log(process.env.DB_HOST);
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -17,4 +18,4 @@ pool.on('error', (err) => {
   // Don't exit immediately - let the process handle gracefully
 });
 
-module.exports = pool;
+export default pool; 

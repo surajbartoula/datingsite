@@ -1,6 +1,10 @@
-const fs = require('fs').promises;
-const path = require('path');
-const pool = require('../db/pool');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import pool from '../db/pool.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const initDatabase = async () => {
   try {
@@ -11,7 +15,11 @@ const initDatabase = async () => {
     const schema = await fs.readFile(schemaPath, 'utf8');
 
     // Execute schema
-    await pool.query(schema);
+    console.log(schema);
+    const statements = schema.split(';').filter(stmt => stmt.trim());
+    for (const statement of statements) {
+      await pool.query(statement);
+    }
 
     console.log('✓ Database schema created successfully');
     console.log('✓ All tables and indexes created');

@@ -1,12 +1,14 @@
-const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
-const { body, validationResult } = require('express-validator');
-const pool = require('../db/pool');
-const { validatePassword } = require('../utils/passwordValidator');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
-const authMiddleware = require('../middleware/authMiddleware');
+// cspell: disable
+import express from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+// cspell: enable
+import { body, validationResult } from 'express-validator';
+import pool from '../db/pool.js';
+import { validatePassword } from '../utils/passwordValidator.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/emailService.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -305,4 +307,4 @@ router.get('/me', authMiddleware, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

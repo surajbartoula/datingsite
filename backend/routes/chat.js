@@ -1,6 +1,6 @@
-const express = require('express');
-const pool = require('../db/pool');
-const authMiddleware = require('../middleware/authMiddleware');
+import express from 'express';
+import pool from '../db/pool.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -132,4 +132,4 @@ router.get('/unread-count', authMiddleware, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

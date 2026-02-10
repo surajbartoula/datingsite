@@ -1,38 +1,42 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
-const helmet = require('helmet');
-const cookieParser = require('cookie-parser');
-require('dotenv').config();
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
+import pool from './db/pool.js';
+import authRoutes from './routes/auth.js';
+import profileRoutes from './routes/profile.js';
+import browseRoutes from './routes/browse.js';
+import userRoutes from './routes/users.js';
+import chatRoutes from './routes/chat.js';
+import notificationRoutes from './routes/notifications.js';
 
-const authRoutes = require('./routes/auth');
-const profileRoutes = require('./routes/profile');
-const browseRoutes = require('./routes/browse');
-const userRoutes = require('./routes/users');
-const chatRoutes = require('./routes/chat');
-const notificationRoutes = require('./routes/notifications');
+import errorHandler from './middleware/errorHandler.js';
+import socketHandler from './socket/socketHandler.js';
 
-const errorHandler = require('./middleware/errorHandler');
-const socketHandler = require('./socket/socketHandler');
+dotenv.config();
+
+pool.connect();
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
-  }
+
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+};
+
+const io = new Server(server, {
+  cors: corsOptions
 });
 
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -41,8 +45,12 @@ app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
 // Routes
-app.get('/', (req, res) => {
+app.get('/', (_, res) => {
   res.json({ message: 'Matcha API Server' });
+});
+
+app.get('/health', (_, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.use('/api/auth', authRoutes);
@@ -61,6 +69,26 @@ socketHandler(io);
 // Start server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+}).on('error', (err) => {
+  console.error('Server error:', err);
+  process.exit(1);
 });
 
-module.exports = { app, io };
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Close server & exit process
+  server.close(() => process.exit(1));
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+export { app, io };
