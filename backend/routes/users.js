@@ -1,7 +1,7 @@
-const express = require('express');
-const pool = require('../db/pool');
-const authMiddleware = require('../middleware/authMiddleware');
-const { updateFameRating } = require('../utils/fameRating');
+import express from 'express';
+import pool from '../db/pool.js';
+import authMiddleware from '../middleware/authMiddleware.js';
+import { updateFameRating } from '../utils/fameRating.js';
 
 const router = express.Router();
 
@@ -402,4 +402,4 @@ router.get('/matches', authMiddleware, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

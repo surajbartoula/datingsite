@@ -1,8 +1,8 @@
-const pool = require('../db/pool');
+import pool from '../db/pool.js';
 
 /**
  * Calculate and update fame rating for a user
- * Formula: (total_likes * 3) + (total_visits * 1) - (total_unlikes * 2)
+ * Formula: (total_likes * 3) + (total_visits * 1) - (total_dislikes * 2)
  */
 async function updateFameRating(userId) {
   try {
@@ -21,7 +21,7 @@ async function updateFameRating(userId) {
                AND l3.liked_id = $1
              )
             ), 0
-          ) AS total_unlikes
+          ) AS total_dislikes
         FROM profiles p
         LEFT JOIN likes l ON l.liked_id = $1
         LEFT JOIN visits v ON v.visited_id = $1
@@ -29,7 +29,7 @@ async function updateFameRating(userId) {
       )
       UPDATE profiles
       SET fame_rating = (
-        SELECT (total_likes * 3) + (total_visits * 1) - (total_unlikes * 2)
+        SELECT (total_likes * 3) + (total_visits * 1) - (total_dislikes * 2)
         FROM stats
       )
       WHERE user_id = $1
@@ -68,7 +68,7 @@ async function getFameRating(userId) {
   }
 }
 
-module.exports = {
+export {
   updateFameRating,
   getFameRating,
 };

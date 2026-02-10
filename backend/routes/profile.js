@@ -1,29 +1,29 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { body, validationResult } = require('express-validator');
-const pool = require('../db/pool');
-const authMiddleware = require('../middleware/authMiddleware');
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { body, validationResult } from 'express-validator';
+import pool from '../db/pool.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Configure multer for image uploads
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: function (_req, _file, cb) {
     const dir = process.env.UPLOAD_DIR || 'uploads';
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     cb(null, dir);
   },
-  filename: function (req, file, cb) {
+  filename: function (_req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-const fileFilter = (req, file, cb) => {
+const fileFilter = (_req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|gif/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
@@ -202,7 +202,7 @@ router.get('/tags/search', authMiddleware, async (req, res, next) => {
     }
 
     const result = await pool.query(
-      'SELECT id, name FROM tags WHERE name ILIKE $1 LIMIT 10',
+      'SELECT id, name FROM tags WHERE name ILIKE $1 LIMIT 10', // eslint-disable-line no-secrets/no-secrets
       [`%${query}%`]
     );
 
@@ -343,4 +343,4 @@ router.delete('/images/:imageId', authMiddleware, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

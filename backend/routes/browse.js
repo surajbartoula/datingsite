@@ -1,21 +1,8 @@
-const express = require('express');
-const pool = require('../db/pool');
-const authMiddleware = require('../middleware/authMiddleware');
+import express from 'express';
+import pool from '../db/pool.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
-
-/**
- * Calculate proximity score based on distance
- * Closer users get higher scores
- */
-function calculateProximityScore(distance) {
-  if (!distance || distance === 0) return 40; // Same location
-  if (distance < 10) return 35;
-  if (distance < 50) return 30;
-  if (distance < 100) return 20;
-  if (distance < 500) return 10;
-  return 5;
-}
 
 // GET /api/browse/suggestions
 router.get('/suggestions', authMiddleware, async (req, res, next) => {
@@ -439,4 +426,4 @@ router.get('/search', authMiddleware, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

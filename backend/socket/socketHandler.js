@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const pool = require('../db/pool');
+import jwt from 'jsonwebtoken';
+import pool from '../db/pool.js';
 
 // Store active user sockets
 const userSockets = new Map(); // userId -> socketId
@@ -41,12 +41,14 @@ function socketHandler(io) {
          AND EXISTS(SELECT 1 FROM likes WHERE liker_id = u.id AND liked_id = $1)`,
       [userId]
     ).then(result => {
-      result.rows.forEach(row => {
-        const matchSocketId = userSockets.get(row.id);
-        if (matchSocketId) {
-          io.to(matchSocketId).emit('user_online', { userId });
-        }
-      });
+      if (result && result.rows) {
+        result.rows.forEach(row => {
+          const matchSocketId = userSockets.get(row.id);
+          if (matchSocketId) {
+            io.to(matchSocketId).emit('user_online', { userId });
+          }
+        });
+      }
     }).catch(err => console.error('Error notifying matches:', err));
 
     // Join user to their personal room
@@ -196,12 +198,14 @@ function socketHandler(io) {
            AND EXISTS(SELECT 1 FROM likes WHERE liker_id = u.id AND liked_id = $1)`,
         [userId]
       ).then(result => {
-        result.rows.forEach(row => {
-          const matchSocketId = userSockets.get(row.id);
-          if (matchSocketId) {
-            io.to(matchSocketId).emit('user_offline', { userId });
-          }
-        });
+        if (result && result.rows) {
+          result.rows.forEach(row => {
+            const matchSocketId = userSockets.get(row.id);
+            if (matchSocketId) {
+              io.to(matchSocketId).emit('user_offline', { userId });
+            }
+          });
+        }
       }).catch(err => console.error('Error notifying matches of offline:', err));
     });
   });
@@ -217,4 +221,4 @@ function socketHandler(io) {
   return io;
 }
 
-module.exports = socketHandler;
+export default socketHandler;

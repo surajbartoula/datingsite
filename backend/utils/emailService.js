@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
 // Create reusable transporter
 const transporter = nodemailer.createTransport({
@@ -80,7 +80,7 @@ async function sendPasswordResetEmail(email, token, username) {
   }
 }
 
-module.exports = {
+export {
   sendVerificationEmail,
   sendPasswordResetEmail,
 };

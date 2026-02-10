@@ -1,4 +1,4 @@
-const Filter = require('bad-words');
+import Filter from 'bad-words';
 const filter = new Filter();
 
 /**
@@ -35,6 +35,7 @@ function validatePassword(password) {
   const lowerPassword = password.toLowerCase();
   
   // Common weak passwords
+  // cspell: disable-next-line
   const commonPasswords = [
     'password', 'password123', '12345678', 'qwerty', 'abc123', 
     'monkey', 'letmein', 'trustno1', 'dragon', 'baseball',
@@ -55,4 +56,4 @@ function validatePassword(password) {
   return { valid: true };
 }
 
-module.exports = { validatePassword };
+export { validatePassword };
