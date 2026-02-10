@@ -299,4 +299,4 @@ Schema → Auth → Profile CRUD → Fame rating → Browse/Match → Profile vi
 
 ## 📄 License
 
-This project is open source and available for educational purposes.
+This project is available for educational purposes.
