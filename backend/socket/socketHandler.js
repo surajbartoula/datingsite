@@ -3,7 +3,6 @@ import pool from '../db/pool.js';
 
 // Store active user sockets
 const userSockets = new Map(); // userId -> socketId
-
 function socketHandler(io) {
   // Socket.io authentication middleware
   io.use((socket, next) => {
