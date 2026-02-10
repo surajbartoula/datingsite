@@ -1,565 +1,228 @@
-# Matcha Backend - Dating Application API
+Tech Stack
+Frontend: React, React Router v6, Socket.io-client, Axios
+Backend: Node.js + Express
+Database: PostgreSQL (raw pg driver, no ORM)
+Real-time: Socket.io (chat + notifications)
+Other: bcrypt (passwords), nodemailer (emails), multer (image uploads), jsonwebtoken (auth tokens), a dictionary wordlist file for password validation
 
-A comprehensive dating application backend with real-time chat, matching algorithm, and social interactions.
+Phase 1 — Project Setup & Auth
+Set up your folder structure, initialize both frontend and backend projects. Configure PostgreSQL and write your schema (users, profiles, images, likes, blocks, reports, visits, messages, notifications, tags, user_tags tables). Implement registration with email/username/password, dictionary-based password rejection (download a wordlist like /usr/share/dict/words or a npm package like bad-words), send verification email via nodemailer with a unique token, and build the login flow using JWT stored in an httpOnly cookie. Add logout and password reset (email token-based) flows.
 
-## Features
+Phase 2 — Database Schema Design
+Design all tables upfront before touching the frontend. Here's the core structure:
 
-- ✅ **Authentication**: Email verification, JWT-based auth, password reset
-- ✅ **Profile Management**: Image uploads (up to 5), tags, location, biography
-- ✅ **Matching Algorithm**: Sexual compatibility, proximity-based, fame rating
-- ✅ **Social Interactions**: Likes, blocks, reports, profile visits
-- ✅ **Advanced Search**: Age, location, fame rating, tags filters
-- ✅ **Real-time Chat**: Socket.io powered messaging with typing indicators
-- ✅ **Real-time Notifications**: Live updates for likes, visits, matches, messages
-- ✅ **Fame Rating System**: Dynamic reputation based on interactions
+-- Auth & Identity
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  username TEXT UNIQUE NOT NULL,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  is_verified BOOLEAN DEFAULT false,
+  verification_token TEXT,
+  reset_token TEXT,
+  reset_token_expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_online TIMESTAMPTZ DEFAULT NOW()
+);
 
-## Tech Stack
+-- Profile
+CREATE TABLE profiles (
+  user_id INT PRIMARY KEY REFERENCES users(id),
+  gender TEXT CHECK (gender IN ('male','female','other')),
+  sexual_preference TEXT CHECK (sexual_preference IN ('male','female','both')),
+  biography TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  city TEXT,
+  location_consent BOOLEAN DEFAULT false,
+  fame_rating INT DEFAULT 0
+);
 
-- **Backend**: Node.js + Express
-- **Database**: PostgreSQL (raw pg driver, no ORM)
-- **Real-time**: Socket.io
-- **Authentication**: JWT (httpOnly cookies)
-- **Password Hashing**: bcrypt
-- **Email**: nodemailer
-- **File Upload**: multer
-- **Password Validation**: bad-words library
+-- Tags (reusable)
+CREATE TABLE tags (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL  -- e.g. "vegan", "geek"
+);
 
-## Project Structure
+CREATE TABLE user_tags (
+  user_id INT REFERENCES users(id),
+  tag_id  INT REFERENCES tags(id),
+  PRIMARY KEY (user_id, tag_id)
+);
 
+-- Images
+CREATE TABLE images (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  url TEXT NOT NULL,
+  is_profile_picture BOOLEAN DEFAULT false
+);
+
+-- Social interactions
+CREATE TABLE likes (
+  liker_id   INT REFERENCES users(id),
+  liked_id   INT REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (liker_id, liked_id)
+);
+
+CREATE TABLE visits (
+  visitor_id INT REFERENCES users(id),
+  visited_id INT REFERENCES users(id),
+  visited_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE blocks (
+  blocker_id INT REFERENCES users(id),
+  blocked_id INT REFERENCES users(id),
+  PRIMARY KEY (blocker_id, blocked_id)
+);
+
+CREATE TABLE reports (
+  id         SERIAL PRIMARY KEY,
+  reporter_id INT REFERENCES users(id),
+  reported_id INT REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Chat
+CREATE TABLE messages (
+  id         SERIAL PRIMARY KEY,
+  sender_id  INT REFERENCES users(id),
+  receiver_id INT REFERENCES users(id),
+  content    TEXT NOT NULL,
+  sent_at    TIMESTAMPTZ DEFAULT NOW(),
+  is_read    BOOLEAN DEFAULT false
+);
+
+-- Notifications
+CREATE TABLE notifications (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT REFERENCES users(id),       -- who receives it
+  type       TEXT NOT NULL,                   -- 'like','visit','message','match','unlike'
+  from_user_id INT REFERENCES users(id),     -- who triggered it
+  is_read    BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## Phase 3 — Profile CRUD
+
+Build the profile completion and editing pages. Handle gender, sexual preference, bio, tags (with autocomplete that searches existing tags and allows creating new ones), location (GPS via browser `geolocation` API with consent toggle, or manual city input), and image uploads (up to 5, enforce one profile picture). Use `multer` on the backend to handle multipart uploads and store files (locally or on a service like Cloudinary). All profile updates go through Express routes that run raw `INSERT`/`UPDATE`/`DELETE` queries via `pg`.
+
+---
+
+## Phase 4 — Fame Rating Logic
+
+Define and implement your fame rating formula. A straightforward consistent approach:
+```
+fame_rating = (total_likes_received * 3) + (total_visits_received * 1) - (total_unlikes_received * 2)
+```
+
+Recalculate this via a helper function or a PostgreSQL view whenever a like, unlike, or visit event occurs. Store the result in `profiles.fame_rating`. This keeps it simple and consistent.
+
+---
+
+## Phase 5 — Browsing & Matching Algorithm
+
+This is the core logic, and it lives on the backend. When a user requests their suggestion list, the query needs to:
+
+1. **Filter by sexual compatibility** — a heterosexual woman sees only men, bisexual users see both, etc. This is a `WHERE` clause join between `users`, `profiles`, and checking both sides' preferences.
+2. **Exclude** already-liked, blocked, and self profiles.
+3. **Score and rank** each candidate using a weighted formula, for example:
+```
+score = (proximity_score * 40) + (shared_tags_count * 35) + (fame_rating_normalized * 25)
+```
+
+Where `proximity_score` is inverse distance (closer = higher). Compute shared tags via a subquery counting matching rows in `user_tags`. Return results sorted by this score by default, but allow the frontend to override the sort to age, location, fame rating, or common tags.
+
+4. **Filtering** (age range, location, fame rating range, tags) is applied as additional `WHERE`/`HAVING` clauses on the same query.
+
+---
+
+## Phase 6 — Profile Viewing, Likes, Blocks, Reports
+
+Build the profile view page. When visited, insert a row into `visits` and create a `visit` notification. Show the target user's info (everything except email/password), their online status or last connection time, their fame rating, whether they liked you, and whether you're connected (mutual like). Add UI buttons for like/unlike, block, and report. A "like" inserts into the `likes` table; if the reverse like already exists, you're now connected — create a `match` notification for both users. An "unlike" deletes from `likes`, disables chat, and creates an `unlike` notification.
+
+---
+
+## Phase 7 — Advanced Search
+
+Build a search page with filters for age range, fame rating range, location (city text match or radius from a point), and one or more tags. Construct the SQL query dynamically on the backend based on which filters the user actually submits (be careful with SQL injection — use parameterized queries with `pg`). Results use the same sort/filter options as browsing.
+
+---
+
+## Phase 8 — Real-Time: Chat & Notifications (Socket.io)
+
+This is where Socket.io comes in. On the backend, set up a Socket.io server alongside Express. On the frontend, connect on login.
+
+For **chat**: when two users are connected (mutual like), they can open a chat room. Messages are sent via Socket.io events, persisted to the `messages` table simultaneously, and relayed to the other user's socket. Show unread message count in a persistent nav indicator.
+
+For **notifications**: whenever a like, visit, message, match, or unlike event occurs on the backend, emit a notification event to the target user's socket. The frontend listens for these events globally and updates an unread notification badge visible from every page. Notifications are also persisted to the `notifications` table so they survive page refreshes.
+
+---
+
+## Phase 9 — Polish & Edge Cases
+
+Handle all the details: prevent liking if you have no profile picture, enforce the 5-image limit, make blocked users disappear from all searches and notifications, handle the GPS consent flow properly, ensure the chat is disabled when someone unlikes, validate everything on both frontend and backend, and add responsive styling.
+
+---
+
+## React Page/Component Structure
+```
+src/
+├── pages/
+│   ├── Register.jsx
+│   ├── Login.jsx
+│   ├── VerifyEmail.jsx
+│   ├── ResetPassword.jsx
+│   ├── ProfileSetup.jsx
+│   ├── ProfileEdit.jsx
+│   ├── Browse.jsx
+│   ├── Search.jsx
+│   ├── ViewProfile.jsx
+│   ├── Chat.jsx
+│   └── Notifications.jsx
+├── components/
+│   ├── Navbar.jsx            (always visible, shows notification/message badges)
+│   ├── TagInput.jsx          (reusable autocomplete tag selector)
+│   ├── ImageUploader.jsx
+│   ├── ProfileCard.jsx       (used in browse/search lists)
+│   └── ProtectedRoute.jsx    (wraps routes that need auth)
+├── context/
+│   ├── AuthContext.jsx        (current user state, login/logout)
+│   ├── SocketContext.jsx      (Socket.io connection, real-time events)
+│   └── NotificationContext.jsx
+└── utils/
+    ├── api.js                (axios instance with base URL)
+    └── socket.js             (Socket.io client setup)
+```
+
+---
+
+## Express Route Structure
 ```
 backend/
 ├── routes/
-│   ├── auth.js              # Authentication endpoints
-│   ├── profile.js           # Profile CRUD + images
-│   ├── browse.js            # Suggestions & search
-│   ├── users.js             # Likes, blocks, reports, profile viewing
-│   ├── chat.js              # Message history
-│   └── notifications.js     # Notification management
+│   ├── auth.js        POST /register, POST /login, POST /logout,
+│   │                  GET  /verify/:token, POST /reset-password
+│   ├── profile.js     GET/PUT /profile, POST /profile/images, DELETE /profile/images/:id
+│   ├── browse.js      GET /browse/suggestions, GET /browse/search
+│   ├── users.js       GET /users/:id, POST /users/:id/like, DELETE /users/:id/like,
+│   │                  POST /users/:id/block, POST /users/:id/report,
+│   │                  GET /users/:id/visitors, GET /users/:id/likers
+│   ├── chat.js        GET /chat/:userId/messages, (Socket.io handles send)
+│   └── notifications.js  GET /notifications, PUT /notifications/:id/read
 ├── middleware/
-│   ├── authMiddleware.js    # JWT verification
-│   └── errorHandler.js      # Centralized error handling
+│   ├── authMiddleware.js     (verify JWT)
+│   └── errorHandler.js
 ├── db/
-│   ├── pool.js              # PostgreSQL connection pool
-│   └── schema.sql           # Database schema
-├── socket/
-│   └── socketHandler.js     # Socket.io event handlers
-├── utils/
-│   ├── passwordValidator.js # Password strength validation
-│   ├── emailService.js      # Email sending functions
-│   └── fameRating.js        # Fame rating calculation
-├── scripts/
-│   └── initDatabase.js      # Database initialization script
-├── uploads/                 # Uploaded images directory
-├── server.js                # Main application entry point
-├── package.json
-├── .env.example
-└── README.md
-```
-
-## Prerequisites
-
-- Node.js (v14 or higher)
-- PostgreSQL (v12 or higher)
-- npm or yarn
-
-## Installation
-
-### 1. Clone and Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Database Setup
-
-Create a PostgreSQL database:
-
-```bash
-psql -U postgres
-CREATE DATABASE matcha;
-\q
-```
-
-### 3. Environment Configuration
-
-Create a `.env` file from the example:
-
-```bash
-cp .env.example .env
-```
-
-Update the `.env` file with your configuration:
-
-```env
-PORT=5000
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=matcha
-DB_USER=postgres
-DB_PASSWORD=your_password
-
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRES_IN=7d
-
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-EMAIL_FROM=Matcha <noreply@matcha.com>
-
-MAX_FILE_SIZE=5242880
-UPLOAD_DIR=uploads
-```
-
-### 4. Initialize Database
-
-Run the database initialization script to create all tables:
-
-```bash
-npm run init-db
-```
-
-### 5. Start the Server
-
-Development mode (with auto-restart):
-```bash
-npm run dev
-```
-
-Production mode:
-```bash
-npm start
-```
-
-The server will start on `http://localhost:5000`
-
-## API Documentation
-
-### Authentication Routes
-
-#### POST /api/auth/register
-Register a new user with email verification.
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com",
-  "username": "johndoe",
-  "firstName": "John",
-  "lastName": "Doe",
-  "password": "SecurePass123!"
-}
-```
-
-**Response:** `201 Created`
-
----
-
-#### GET /api/auth/verify/:token
-Verify email address using token from verification email.
-
-**Response:** `200 OK`
-
----
-
-#### POST /api/auth/login
-Login with email/username and password.
-
-**Request Body:**
-```json
-{
-  "emailOrUsername": "user@example.com",
-  "password": "SecurePass123!"
-}
-```
-
-**Response:** Sets httpOnly cookie and returns user data
-
----
-
-#### POST /api/auth/logout
-Logout current user (requires authentication).
-
----
-
-#### POST /api/auth/forgot-password
-Request password reset email.
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com"
-}
-```
-
----
-
-#### POST /api/auth/reset-password
-Reset password using token.
-
-**Request Body:**
-```json
-{
-  "token": "reset-token-from-email",
-  "newPassword": "NewSecurePass123!"
-}
-```
-
----
-
-#### GET /api/auth/me
-Get current authenticated user's profile.
-
-### Profile Routes
-
-#### GET /api/profile
-Get current user's complete profile with images and tags.
-
----
-
-#### PUT /api/profile
-Update profile information.
-
-**Request Body:**
-```json
-{
-  "gender": "male",
-  "sexualPreference": "female",
-  "biography": "Software developer who loves hiking",
-  "city": "San Francisco",
-  "latitude": 37.7749,
-  "longitude": -122.4194,
-  "locationConsent": true
-}
-```
-
----
-
-#### POST /api/profile/tags
-Update user tags.
-
-**Request Body:**
-```json
-{
-  "tags": ["hiking", "coding", "coffee", "travel"]
-}
-```
-
----
-
-#### GET /api/profile/tags/search?query=hik
-Search for existing tags (autocomplete).
-
----
-
-#### POST /api/profile/images
-Upload an image (multipart/form-data).
-
-**Form Data:**
-- `image`: Image file (max 5MB, jpg/png/gif)
-- `isProfilePicture`: "true" or "false"
-
----
-
-#### PUT /api/profile/images/:imageId/profile-picture
-Set an image as profile picture.
-
----
-
-#### DELETE /api/profile/images/:imageId
-Delete an image.
-
-### Browse & Search Routes
-
-#### GET /api/browse/suggestions
-Get suggested matches based on compatibility.
-
-**Query Parameters:**
-- `sortBy`: score | age | location | fame | tags
-- `page`: Page number (default: 1)
-- `limit`: Results per page (default: 20)
-
----
-
-#### GET /api/browse/search
-Advanced search with filters.
-
-**Query Parameters:**
-- `ageMin`, `ageMax`: Age range
-- `fameMin`, `fameMax`: Fame rating range
-- `city`: City name (partial match)
-- `maxDistance`: Maximum distance in km
-- `tags[]`: Array of tag names
-- `sortBy`: score | age | location | fame | tags
-- `page`, `limit`: Pagination
-
-### User Interaction Routes
-
-#### GET /api/users/:id
-View another user's profile (records visit).
-
----
-
-#### POST /api/users/:id/like
-Like a user. Returns `{ isMatch: true }` if mutual.
-
----
-
-#### DELETE /api/users/:id/like
-Unlike a user (disables chat if was matched).
-
----
-
-#### POST /api/users/:id/block
-Block a user (removes all interactions).
-
----
-
-#### POST /api/users/:id/report
-Report a user.
-
----
-
-#### GET /api/users/:id/visitors
-Get users who visited your profile.
-
----
-
-#### GET /api/users/:id/likers
-Get users who liked your profile.
-
----
-
-#### GET /api/users/matches
-Get all mutual matches.
-
-### Chat Routes
-
-#### GET /api/chat/:userId/messages
-Get message history with a matched user.
-
----
-
-#### GET /api/chat/conversations
-Get all conversations with unread counts.
-
----
-
-#### GET /api/chat/unread-count
-Get total unread message count.
-
-### Notification Routes
-
-#### GET /api/notifications
-Get all notifications.
-
-**Query Parameters:**
-- `limit`: Max notifications (default: 50)
-- `offset`: Skip count (default: 0)
-
----
-
-#### GET /api/notifications/unread-count
-Get unread notification count.
-
----
-
-#### PUT /api/notifications/:id/read
-Mark a notification as read.
-
----
-
-#### PUT /api/notifications/mark-all-read
-Mark all notifications as read.
-
----
-
-#### DELETE /api/notifications/:id
-Delete a notification.
-
-## Socket.io Events
-
-### Client → Server
-
-**`send_message`**
-```javascript
-socket.emit('send_message', {
-  receiverId: 123,
-  content: 'Hello!'
-});
-```
-
-**`typing_start`**
-```javascript
-socket.emit('typing_start', { receiverId: 123 });
-```
-
-**`typing_stop`**
-```javascript
-socket.emit('typing_stop', { receiverId: 123 });
-```
-
-**`mark_messages_read`**
-```javascript
-socket.emit('mark_messages_read', { senderId: 123 });
-```
-
-### Server → Client
-
-**`new_message`** - Receive new message
-**`message_sent`** - Confirmation of sent message
-**`new_notification`** - New notification (like, visit, match, unlike)
-**`user_typing`** - User started typing
-**`user_stopped_typing`** - User stopped typing
-**`user_online`** - Match came online
-**`user_offline`** - Match went offline
-**`messages_read`** - Your messages were read
-**`error`** - Error occurred
-
-### Client Connection
-
-```javascript
-import io from 'socket.io-client';
-
-const socket = io('http://localhost:5000', {
-  auth: {
-    token: 'your-jwt-token'
-  }
-});
-
-socket.on('new_message', (message) => {
-  console.log('New message:', message);
-});
-
-socket.on('new_notification', (notification) => {
-  console.log('New notification:', notification);
-});
-```
-
-## Fame Rating Algorithm
-
-Formula:
-```
-fame_rating = (total_likes * 3) + (total_visits * 1) - (total_unlikes * 2)
-```
-
-Automatically recalculated on:
-- User receives a like (+3)
-- User receives a visit (+1)
-- User gets unliked (-2)
-
-## Matching Algorithm
-
-Matching score formula:
-```
-score = (proximity_score * 40%) + (shared_tags * 35%) + (fame_rating * 25%)
-```
-
-**Proximity Score:**
-- Same location: 40
-- < 10km: 35
-- < 50km: 30
-- < 100km: 20
-- < 500km: 10
-- > 500km: 5
-
-**Filters Applied:**
-- Sexual compatibility (both ways)
-- Excludes already liked users
-- Excludes blocked users
-- Excludes self
-
-## Password Validation
-
-Requirements:
-- Minimum 8 characters
-- At least 1 uppercase letter
-- At least 1 lowercase letter
-- At least 1 number
-- At least 1 special character
-- Not in common password list
-- Not containing profanity
-
-## Security Features
-
-- JWT stored in httpOnly cookies
-- Password hashing with bcrypt
-- SQL injection protection (parameterized queries)
-- CORS protection
-- Helmet security headers
-- File upload validation
-- Authentication required for protected routes
-
-## Database Schema Highlights
-
-**Key Tables:**
-- `users` - Authentication and identity
-- `profiles` - User profiles with location and preferences
-- `tags` - Reusable interest tags
-- `user_tags` - Many-to-many tag associations
-- `images` - User photos (max 5 per user)
-- `likes` - Like relationships
-- `visits` - Profile visit history
-- `blocks` - Block relationships
-- `reports` - User reports
-- `messages` - Chat messages
-- `notifications` - Real-time notifications
-
-All tables use proper foreign key constraints and indexes for performance.
-
-## Error Handling
-
-All routes use centralized error handling with proper status codes:
-- `400` - Bad Request (validation errors)
-- `401` - Unauthorized (invalid/missing token)
-- `403` - Forbidden (blocked users, permission denied)
-- `404` - Not Found
-- `409` - Conflict (duplicate email/username)
-- `500` - Internal Server Error
-
-## Development Tips
-
-**Testing with cURL:**
-
-```bash
-# Register
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@test.com","username":"testuser","firstName":"Test","lastName":"User","password":"Test123!"}'
-
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -c cookies.txt \
-  -d '{"emailOrUsername":"testuser","password":"Test123!"}'
-
-# Get profile (with cookie)
-curl -X GET http://localhost:5000/api/profile \
-  -b cookies.txt
-```
-
-**Reset Database:**
-```bash
-psql -U postgres -d matcha -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-npm run init-db
-```
-
-## Production Deployment
-
-1. Set `NODE_ENV=production` in `.env`
-2. Use a strong `JWT_SECRET`
-3. Configure proper email service (not Gmail)
-4. Set up SSL/TLS certificates
-5. Use a reverse proxy (nginx)
-6. Set up proper PostgreSQL user permissions
-7. Configure file upload to cloud storage (S3, Cloudinary)
-8. Set up monitoring and logging
-9. Enable rate limiting
-10. Configure CORS for your frontend domain
-
-## License
-
-ISC
+│   └── pool.js               (pg Pool instance)
+└── socket/
+    └── socketHandler.js      (all Socket.io event logic)
+
+Build order summary: Schema → Auth → Profile CRUD → Fame rating → Browse/Match → Profile view + Likes/Blocks → Search → Socket.io (chat + notifications) → Polish. Each phase is independently testable before moving to the next.
