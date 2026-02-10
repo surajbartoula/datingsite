@@ -72,7 +72,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
     );
 
     // Record visit (only if viewing someone else)
-    if (parseInt(id) !== req.userId) {
+    if (parseInt(id, 10) !== req.userId) {
       await pool.query(
         'INSERT INTO visits (visitor_id, visited_id) VALUES ($1, $2)',
         [req.userId, id]
@@ -102,7 +102,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
 router.post('/:id/like', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const likedId = parseInt(id);
+    const likedId = parseInt(id, 10);
 
     if (likedId === req.userId) {
       return res.status(400).json({ error: 'Cannot like yourself' });
@@ -189,7 +189,7 @@ router.post('/:id/like', authMiddleware, async (req, res, next) => {
 router.delete('/:id/like', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const likedId = parseInt(id);
+    const likedId = parseInt(id, 10);
 
     const client = await pool.connect();
 
@@ -248,7 +248,7 @@ router.delete('/:id/like', authMiddleware, async (req, res, next) => {
 router.post('/:id/block', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const blockedId = parseInt(id);
+    const blockedId = parseInt(id, 10);
 
     if (blockedId === req.userId) {
       return res.status(400).json({ error: 'Cannot block yourself' });
@@ -291,7 +291,7 @@ router.post('/:id/block', authMiddleware, async (req, res, next) => {
 router.post('/:id/report', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const reportedId = parseInt(id);
+    const reportedId = parseInt(id, 10);
 
     if (reportedId === req.userId) {
       return res.status(400).json({ error: 'Cannot report yourself' });
@@ -314,7 +314,7 @@ router.get('/:id/visitors', authMiddleware, async (req, res, next) => {
     const { id } = req.params;
 
     // Only allow viewing your own visitors
-    if (parseInt(id) !== req.userId) {
+    if (parseInt(id, 10) !== req.userId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -347,7 +347,7 @@ router.get('/:id/likers', authMiddleware, async (req, res, next) => {
     const { id } = req.params;
 
     // Only allow viewing your own likers
-    if (parseInt(id) !== req.userId) {
+    if (parseInt(id, 10) !== req.userId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 

@@ -8,6 +8,10 @@ const router = express.Router();
 router.get('/', authMiddleware, async (req, res, next) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
+    
+    // Validate numeric inputs
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const offsetNum = Math.max(0, parseInt(offset, 10) || 0);
 
     const result = await pool.query(
       `SELECT 
@@ -26,7 +30,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
         AND NOT EXISTS(SELECT 1 FROM blocks WHERE blocker_id = $1 AND blocked_id = u.id)
       ORDER BY n.created_at DESC
       LIMIT $2 OFFSET $3`,
-      [req.userId, limit, offset]
+      [req.userId, limitNum, offsetNum]
     );
 
     res.json({ notifications: result.rows });
@@ -50,7 +54,7 @@ router.get('/unread-count', authMiddleware, async (req, res, next) => {
       [req.userId]
     );
 
-    res.json({ unreadCount: parseInt(result.rows[0].count) });
+    res.json({ unreadCount: parseInt(result.rows[0].count, 10) });
   } catch (error) {
     next(error);
   }

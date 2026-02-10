@@ -5,7 +5,7 @@ const filter = new Filter();
  * Validate password strength and check against dictionary
  * Returns { valid: boolean, error: string }
  */
-function validatePassword(password) {
+const validatePassword = (password) => {
   // Check length
   if (password.length < 8) {
     return { valid: false, error: 'Password must be at least 8 characters long' };
@@ -54,6 +54,6 @@ function validatePassword(password) {
   }
 
   return { valid: true };
-}
+};
 
 export { validatePassword };

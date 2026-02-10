@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/:userId/messages', authMiddleware, async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const otherUserId = parseInt(userId);
+    const otherUserId = parseInt(userId, 10);
 
     // Check if users are matched
     const matchCheck = await pool.query(
@@ -126,7 +126,7 @@ router.get('/unread-count', authMiddleware, async (req, res, next) => {
       [req.userId]
     );
 
-    res.json({ unreadCount: parseInt(result.rows[0].count) });
+    res.json({ unreadCount: parseInt(result.rows[0].count, 10) });
   } catch (error) {
     next(error);
   }

@@ -8,7 +8,11 @@ const router = express.Router();
 router.get('/suggestions', authMiddleware, async (req, res, next) => {
   try {
     const { sortBy = 'score', page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
+    
+    // Validate numeric inputs
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
 
     // Get current user's profile
     const currentUserResult = await pool.query(
@@ -22,7 +26,12 @@ router.get('/suggestions', authMiddleware, async (req, res, next) => {
 
     const currentUser = currentUserResult.rows[0];
 
-    // Build the query with sexual compatibility filter
+    // Validate user data
+    if (!currentUser.gender) {
+      return res.status(400).json({ error: 'Profile gender is required' });
+    }
+
+    // Build the query with sexual compatibility filter using parameterized queries
     let genderFilter = '';
     if (currentUser.sexual_preference === 'male') {
       genderFilter = "AND p.gender = 'male'";
@@ -33,10 +42,11 @@ router.get('/suggestions', authMiddleware, async (req, res, next) => {
     }
 
     // Check if other users' preferences match current user's gender
-    let preferenceFilter = `
+    // Using $4 parameter for gender to prevent SQL injection
+    const preferenceFilter = `
       AND (
         p.sexual_preference = 'both' 
-        OR (p.sexual_preference = '${currentUser.gender}')
+        OR p.sexual_preference = $4
       )
     `;
 
@@ -141,7 +151,7 @@ router.get('/suggestions', authMiddleware, async (req, res, next) => {
       LIMIT $2 OFFSET $3
     `;
 
-    const result = await pool.query(query, [req.userId, limit, offset]);
+    const result = await pool.query(query, [req.userId, limitNum, offset, currentUser.gender]);
 
     // Get tags for each user
     const userIds = result.rows.map(row => row.id);
@@ -192,7 +202,21 @@ router.get('/search', authMiddleware, async (req, res, next) => {
       limit = 20
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    // Validate numeric inputs
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Validate age parameters
+    const ageMinNum = ageMin ? Math.max(18, parseInt(ageMin, 10)) : null;
+    const ageMaxNum = ageMax ? Math.max(18, parseInt(ageMax, 10)) : null;
+    
+    // Validate fame parameters
+    const fameMinNum = fameMin ? parseInt(fameMin, 10) : null;
+    const fameMaxNum = fameMax ? parseInt(fameMax, 10) : null;
+    
+    // Validate distance parameter
+    const maxDistanceNum = maxDistance ? Math.max(0, parseFloat(maxDistance)) : null;
 
     // Get current user's profile
     const currentUserResult = await pool.query(
@@ -205,6 +229,11 @@ router.get('/search', authMiddleware, async (req, res, next) => {
     }
 
     const currentUser = currentUserResult.rows[0];
+
+    // Validate user data
+    if (!currentUser.gender) {
+      return res.status(400).json({ error: 'Profile gender is required' });
+    }
 
     // Build dynamic WHERE clauses
     const conditions = [];
@@ -219,39 +248,42 @@ router.get('/search', authMiddleware, async (req, res, next) => {
       genderFilter = "AND p.gender = 'female'";
     }
 
-    let preferenceFilter = `
+    // Add gender parameter for preference filter to prevent SQL injection
+    params.push(currentUser.gender);
+    paramCount++;
+    const preferenceFilter = `
       AND (
         p.sexual_preference = 'both' 
-        OR (p.sexual_preference = '${currentUser.gender}')
+        OR p.sexual_preference = $${paramCount}
       )
     `;
 
     // Age filter (using created_at as proxy)
-    if (ageMin) {
+    if (ageMinNum) {
       const maxDate = new Date();
-      maxDate.setFullYear(maxDate.getFullYear() - parseInt(ageMin));
+      maxDate.setFullYear(maxDate.getFullYear() - ageMinNum);
       params.push(maxDate);
       paramCount++;
       conditions.push(`u.created_at <= $${paramCount}`);
     }
 
-    if (ageMax) {
+    if (ageMaxNum) {
       const minDate = new Date();
-      minDate.setFullYear(minDate.getFullYear() - parseInt(ageMax));
+      minDate.setFullYear(minDate.getFullYear() - ageMaxNum);
       params.push(minDate);
       paramCount++;
       conditions.push(`u.created_at >= $${paramCount}`);
     }
 
     // Fame rating filter
-    if (fameMin) {
-      params.push(parseInt(fameMin));
+    if (fameMinNum !== null) {
+      params.push(fameMinNum);
       paramCount++;
       conditions.push(`p.fame_rating >= $${paramCount}`);
     }
 
-    if (fameMax) {
-      params.push(parseInt(fameMax));
+    if (fameMaxNum !== null) {
+      params.push(fameMaxNum);
       paramCount++;
       conditions.push(`p.fame_rating <= $${paramCount}`);
     }
@@ -265,8 +297,8 @@ router.get('/search', authMiddleware, async (req, res, next) => {
 
     // Distance filter
     let distanceFilter = '';
-    if (maxDistance && currentUser.latitude && currentUser.longitude) {
-      params.push(parseFloat(maxDistance));
+    if (maxDistanceNum && currentUser.latitude && currentUser.longitude) {
+      params.push(maxDistanceNum);
       paramCount++;
       distanceFilter = `AND distance <= $${paramCount}`;
     }

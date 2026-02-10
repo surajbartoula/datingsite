@@ -4,7 +4,7 @@ import pool from '../db/pool.js';
  * Calculate and update fame rating for a user
  * Formula: (total_likes * 3) + (total_visits * 1) - (total_dislikes * 2)
  */
-async function updateFameRating(userId) {
+const updateFameRating = async (userId) => {
   try {
     const query = `
       WITH stats AS (
@@ -47,12 +47,12 @@ async function updateFameRating(userId) {
     console.error('Error updating fame rating:', error);
     throw error;
   }
-}
+};
 
 /**
  * Get current fame rating for a user
  */
-async function getFameRating(userId) {
+const getFameRating = async (userId) => {
   try {
     const query = 'SELECT fame_rating FROM profiles WHERE user_id = $1';
     const result = await pool.query(query, [userId]);
@@ -66,7 +66,7 @@ async function getFameRating(userId) {
     console.error('Error getting fame rating:', error);
     throw error;
   }
-}
+};
 
 export {
   updateFameRating,
