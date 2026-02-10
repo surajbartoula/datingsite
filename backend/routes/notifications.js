@@ -50,7 +50,7 @@ router.get('/unread-count', authMiddleware, async (req, res, next) => {
       [req.userId]
     );
 
-    res.json({ unreadCount: parseInt(result.rows[0].count) });
+    res.json({ unreadCount: parseInt(result.rows[0].count, 10) });
   } catch (error) {
     next(error);
   }

@@ -1,17 +1,16 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const pool = require('../db/pool');
 
-async function initDatabase() {
+const initDatabase = async () => {
   try {
     console.log('Initializing database...');
 
-    // Read schema file
+    // Read schema file asynchronously
     const schemaPath = path.join(__dirname, '..', 'db', 'schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf8');
+    const schema = await fs.readFile(schemaPath, 'utf8');
 
     // Execute schema
-    console.log(schema);
     await pool.query(schema);
 
     console.log('✓ Database schema created successfully');
@@ -22,6 +21,6 @@ async function initDatabase() {
     console.error('Error initializing database:', error);
     process.exit(1);
   }
-}
+};
 
 initDatabase();

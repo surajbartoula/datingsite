@@ -4,7 +4,7 @@ const pool = require('../db/pool');
 // Store active user sockets
 const userSockets = new Map(); // userId -> socketId
 
-function socketHandler(io) {
+const socketHandler = (io) => {
   // Socket.io authentication middleware
   io.use((socket, next) => {
     try {
@@ -30,11 +30,11 @@ function socketHandler(io) {
     // Store user's socket
     userSockets.set(userId, socket.id);
 
-    // Update user's online status
+    // Update user's online status with proper error handling
     pool.query('UPDATE users SET last_online = NOW() WHERE id = $1', [userId])
       .catch(err => console.error('Error updating online status:', err));
 
-    // Emit to user's matches that they're online
+    // Emit to user's matches that they're online with proper error handling
     pool.query(
       `SELECT u.id FROM users u
        WHERE EXISTS(SELECT 1 FROM likes WHERE liker_id = $1 AND liked_id = u.id)

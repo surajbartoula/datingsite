@@ -1,7 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const { body, validationResult } = require('express-validator');
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -12,8 +13,8 @@ const router = express.Router();
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const dir = process.env.UPLOAD_DIR || 'uploads';
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (!fsSync.existsSync(dir)) {
+      fsSync.mkdirSync(dir, { recursive: true });
     }
     cb(null, dir);
   },
@@ -225,9 +226,13 @@ router.post('/images', authMiddleware, upload.single('image'), async (req, res, 
       [req.userId]
     );
 
-    if (parseInt(countResult.rows[0].count) >= 5) {
-      // Delete uploaded file
-      fs.unlinkSync(req.file.path);
+    if (parseInt(countResult.rows[0].count, 10) >= 5) {
+      // Delete uploaded file asynchronously
+      try {
+        await fs.unlink(req.file.path);
+      } catch (unlinkError) {
+        console.error('Error deleting file:', unlinkError);
+      }
       return res.status(400).json({ error: 'Maximum 5 images allowed' });
     }
 
@@ -261,7 +266,12 @@ router.post('/images', authMiddleware, upload.single('image'), async (req, res, 
       });
     } catch (error) {
       await client.query('ROLLBACK');
-      fs.unlinkSync(req.file.path);
+      // Delete uploaded file asynchronously on error
+      try {
+        await fs.unlink(req.file.path);
+      } catch (unlinkError) {
+        console.error('Error deleting file after rollback:', unlinkError);
+      }
       throw error;
     } finally {
       client.release();
@@ -331,10 +341,15 @@ router.delete('/images/:imageId', authMiddleware, async (req, res, next) => {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    // Delete file from disk
+    // Delete file from disk asynchronously
     const filePath = path.join(__dirname, '..', result.rows[0].url);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    try {
+      await fs.unlink(filePath);
+    } catch (unlinkError) {
+      // Log error but don't fail the request if file doesn't exist
+      if (unlinkError.code !== 'ENOENT') {
+        console.error('Error deleting file from disk:', unlinkError);
+      }
     }
 
     res.json({ message: 'Image deleted successfully' });
