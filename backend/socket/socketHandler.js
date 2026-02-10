@@ -57,8 +57,15 @@ const socketHandler = (io) => {
       try {
         const { receiverId, content } = data;
 
+        // Validate input
         if (!receiverId || !content || content.trim() === '') {
           socket.emit('error', { message: 'Invalid message data' });
+          return;
+        }
+
+        const receiverIdNum = parseInt(receiverId, 10);
+        if (isNaN(receiverIdNum)) {
+          socket.emit('error', { message: 'Invalid receiver ID' });
           return;
         }
 
@@ -67,7 +74,7 @@ const socketHandler = (io) => {
           `SELECT 1 FROM likes l1
            WHERE l1.liker_id = $1 AND l1.liked_id = $2
            AND EXISTS(SELECT 1 FROM likes l2 WHERE l2.liker_id = $2 AND l2.liked_id = $1)`,
-          [userId, receiverId]
+          [userId, receiverIdNum]
         );
 
         if (matchCheck.rows.length === 0) {
@@ -80,7 +87,7 @@ const socketHandler = (io) => {
           `SELECT 1 FROM blocks 
            WHERE (blocker_id = $1 AND blocked_id = $2) 
               OR (blocker_id = $2 AND blocked_id = $1)`,
-          [userId, receiverId]
+          [userId, receiverIdNum]
         );
 
         if (blockCheck.rows.length > 0) {
@@ -93,7 +100,7 @@ const socketHandler = (io) => {
           `INSERT INTO messages (sender_id, receiver_id, content)
            VALUES ($1, $2, $3)
            RETURNING *`,
-          [userId, receiverId, content.trim()]
+          [userId, receiverIdNum, content.trim()]
         );
 
         const message = result.rows[0];
@@ -102,7 +109,7 @@ const socketHandler = (io) => {
         socket.emit('message_sent', message);
 
         // Emit to receiver if they're online
-        const receiverSocketId = userSockets.get(receiverId);
+        const receiverSocketId = userSockets.get(receiverIdNum);
         if (receiverSocketId) {
           io.to(receiverSocketId).emit('new_message', message);
         }
@@ -111,7 +118,7 @@ const socketHandler = (io) => {
         await pool.query(
           `INSERT INTO notifications (user_id, type, from_user_id)
            VALUES ($1, 'message', $2)`,
-          [receiverId, userId]
+          [receiverIdNum, userId]
         );
 
         // Emit notification to receiver
@@ -130,10 +137,15 @@ const socketHandler = (io) => {
     });
 
     // Handle typing indicators
-    socket.on('typing_start', async (data) => {
+    socket.on('typing_start', (data) => {
       try {
         const { receiverId } = data;
-        const receiverSocketId = userSockets.get(receiverId);
+        if (!receiverId) return;
+        
+        const receiverIdNum = parseInt(receiverId, 10);
+        if (isNaN(receiverIdNum)) return;
+        
+        const receiverSocketId = userSockets.get(receiverIdNum);
         
         if (receiverSocketId) {
           io.to(receiverSocketId).emit('user_typing', { userId });
@@ -143,10 +155,15 @@ const socketHandler = (io) => {
       }
     });
 
-    socket.on('typing_stop', async (data) => {
+    socket.on('typing_stop', (data) => {
       try {
         const { receiverId } = data;
-        const receiverSocketId = userSockets.get(receiverId);
+        if (!receiverId) return;
+        
+        const receiverIdNum = parseInt(receiverId, 10);
+        if (isNaN(receiverIdNum)) return;
+        
+        const receiverSocketId = userSockets.get(receiverIdNum);
         
         if (receiverSocketId) {
           io.to(receiverSocketId).emit('user_stopped_typing', { userId });
@@ -160,16 +177,20 @@ const socketHandler = (io) => {
     socket.on('mark_messages_read', async (data) => {
       try {
         const { senderId } = data;
+        if (!senderId) return;
+
+        const senderIdNum = parseInt(senderId, 10);
+        if (isNaN(senderIdNum)) return;
 
         await pool.query(
           `UPDATE messages 
            SET is_read = true 
            WHERE sender_id = $1 AND receiver_id = $2 AND is_read = false`,
-          [senderId, userId]
+          [senderIdNum, userId]
         );
 
         // Notify sender that messages were read
-        const senderSocketId = userSockets.get(senderId);
+        const senderSocketId = userSockets.get(senderIdNum);
         if (senderSocketId) {
           io.to(senderSocketId).emit('messages_read', { readBy: userId });
         }
