@@ -218,9 +218,11 @@ Build a search page with filters for age range, fame rating range, location (cit
 
 This is where Socket.io comes in. On the backend, set up a Socket.io server alongside Express. On the frontend, connect on login.
 
-**For chat**: when two users are connected (mutual like), they can open a chat room. Messages are sent via Socket.io events, persisted to the `messages` table simultaneously, and relayed to the other user's socket. Show unread message count in a persistent nav indicator.
+#### Chat Implementation
+When two users are connected (mutual like), they can open a chat room. Messages are sent via Socket.io events, persisted to the `messages` table simultaneously, and relayed to the other user's socket. Show unread message count in a persistent nav indicator.
 
-**For notifications**: whenever a like, visit, message, match, or unlike event occurs on the backend, emit a notification event to the target user's socket. The frontend listens for these events globally and updates an unread notification badge visible from every page. Notifications are also persisted to the `notifications` table so they survive page refreshes.
+#### Notifications Implementation
+Whenever a like, visit, message, match, or unlike event occurs on the backend, emit a notification event to the target user's socket. The frontend listens for these events globally and updates an unread notification badge visible from every page. Notifications are also persisted to the `notifications` table so they survive page refreshes.
 
 ---
 
