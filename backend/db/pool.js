@@ -1,7 +1,5 @@
 const { Pool } = require('pg');
 
-console.log(process.env.DB_HOST);
-
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -10,13 +8,13 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
-pool.on('connect', (error) => {
-  console.log('Connected to PostgreSQL database', error);
+pool.on('connect', () => {
+  console.log('Connected to PostgreSQL database');
 });
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  // Don't exit immediately - let the process handle gracefully
 });
 
 module.exports = pool;
