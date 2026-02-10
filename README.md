@@ -7,15 +7,15 @@
 - [Tech Stack](#-tech-stack)
 - [Architecture](#-architecture)
 - [Development Phases](#-development-phases)
-  - [Phase 1: Project Setup & Auth](#phase-1--project-setup--auth)
-  - [Phase 2: Database Schema Design](#phase-2--database-schema-design)
-  - [Phase 3: Profile CRUD](#phase-3--profile-crud)
-  - [Phase 4: Fame Rating Logic](#phase-4--fame-rating-logic)
-  - [Phase 5: Browsing & Matching Algorithm](#phase-5--browsing--matching-algorithm)
-  - [Phase 6: Profile Viewing, Likes, Blocks, Reports](#phase-6--profile-viewing-likes-blocks-reports)
-  - [Phase 7: Advanced Search](#phase-7--advanced-search)
-  - [Phase 8: Real-Time Chat & Notifications](#phase-8--real-time-chat--notifications)
-  - [Phase 9: Polish & Edge Cases](#phase-9--polish--edge-cases)
+  - [Phase 1 - Project Setup & Auth](#phase-1---project-setup--auth)
+  - [Phase 2 - Database Schema Design](#phase-2---database-schema-design)
+  - [Phase 3 - Profile CRUD](#phase-3---profile-crud)
+  - [Phase 4 - Fame Rating Logic](#phase-4---fame-rating-logic)
+  - [Phase 5 - Browsing & Matching Algorithm](#phase-5---browsing--matching-algorithm)
+  - [Phase 6 - Profile Viewing, Likes, Blocks, Reports](#phase-6---profile-viewing-likes-blocks-reports)
+  - [Phase 7 - Advanced Search](#phase-7---advanced-search)
+  - [Phase 8 - Real-Time Chat & Notifications](#phase-8---real-time-chat--notifications)
+  - [Phase 9 - Polish & Edge Cases](#phase-9---polish--edge-cases)
 - [Project Structure](#-project-structure)
 
 ---
@@ -57,11 +57,11 @@
 
 ## 📝 Development Phases
 
-### Phase 1 — Project Setup & Auth
+### Phase 1 - Project Setup & Auth
 
 Set up your folder structure, initialize both frontend and backend projects. Configure PostgreSQL and write your schema (users, profiles, images, likes, blocks, reports, visits, messages, notifications, tags, user_tags tables). Implement registration with email/username/password, dictionary-based password rejection (download a wordlist like /usr/share/dict/words or a npm package like bad-words), send verification email via nodemailer with a unique token, and build the login flow using JWT stored in an httpOnly cookie. Add logout and password reset (email token-based) flows.
 
-### Phase 2 — Database Schema Design
+### Phase 2 - Database Schema Design
 
 Design all tables upfront before touching the frontend. Here's the core structure:
 
@@ -166,13 +166,13 @@ CREATE TABLE notifications (
 
 ---
 
-### Phase 3 — Profile CRUD
+### Phase 3 - Profile CRUD
 
 Build the profile completion and editing pages. Handle gender, sexual preference, bio, tags (with autocomplete that searches existing tags and allows creating new ones), location (GPS via browser `geolocation` API with consent toggle, or manual city input), and image uploads (up to 5, enforce one profile picture). Use `multer` on the backend to handle multipart uploads and store files (locally or on a service like Cloudinary). All profile updates go through Express routes that run raw `INSERT`/`UPDATE`/`DELETE` queries via `pg`.
 
 ---
 
-### Phase 4 — Fame Rating Logic
+### Phase 4 - Fame Rating Logic
 
 Define and implement your fame rating formula. A straightforward consistent approach:
 
@@ -184,7 +184,7 @@ Recalculate this via a helper function or a PostgreSQL view whenever a like, unl
 
 ---
 
-### Phase 5 — Browsing & Matching Algorithm
+### Phase 5 - Browsing & Matching Algorithm
 
 This is the core logic, and it lives on the backend. When a user requests their suggestion list, the query needs to:
 
@@ -202,19 +202,19 @@ Where `proximity_score` is inverse distance (closer = higher). Compute shared ta
 
 ---
 
-### Phase 6 — Profile Viewing, Likes, Blocks, Reports
+### Phase 6 - Profile Viewing, Likes, Blocks, Reports
 
 Build the profile view page. When visited, insert a row into `visits` and create a `visit` notification. Show the target user's info (everything except email/password), their online status or last connection time, their fame rating, whether they liked you, and whether you're connected (mutual like). Add UI buttons for like/unlike, block, and report. A "like" inserts into the `likes` table; if the reverse like already exists, you're now connected — create a `match` notification for both users. An "unlike" deletes from `likes`, disables chat, and creates an `unlike` notification.
 
 ---
 
-### Phase 7 — Advanced Search
+### Phase 7 - Advanced Search
 
 Build a search page with filters for age range, fame rating range, location (city text match or radius from a point), and one or more tags. Construct the SQL query dynamically on the backend based on which filters the user actually submits (be careful with SQL injection — use parameterized queries with `pg`). Results use the same sort/filter options as browsing.
 
 ---
 
-### Phase 8 — Real-Time: Chat & Notifications (Socket.io)
+### Phase 8 - Real-Time: Chat & Notifications (Socket.io)
 
 This is where Socket.io comes in. On the backend, set up a Socket.io server alongside Express. On the frontend, connect on login.
 
@@ -226,7 +226,7 @@ Whenever a like, visit, message, match, or unlike event occurs on the backend, e
 
 ---
 
-### Phase 9 — Polish & Edge Cases
+### Phase 9 - Polish & Edge Cases
 
 
 Handle all the details: prevent liking if you have no profile picture, enforce the 5-image limit, make blocked users disappear from all searches and notifications, handle the GPS consent flow properly, ensure the chat is disabled when someone unlikes, validate everything on both frontend and backend, and add responsive styling.
